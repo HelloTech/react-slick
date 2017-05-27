@@ -41,7 +41,7 @@ var EventHandlers = {
 
     this.slideHandler(targetSlide);
   },
- 
+
   // Accessiblity handler for previous and next
   keyHandler: function (e) {
     //Dont slide if the cursor is inside the form fields and arrow keys are pressed
@@ -73,6 +73,7 @@ var EventHandlers = {
     posY = (e.touches !== undefined) ? e.touches[0].pageY : e.clientY;
     this.setState({
       dragging: true,
+      beenSwipeMoved: false,
       touchObject: {
         startX: posX,
         startY: posY,
@@ -82,7 +83,7 @@ var EventHandlers = {
     });
   },
   swipeMove: function (e) {
-    if (!this.state.dragging || this.state.verticalStability) {
+    if (!this.state.dragging) {
       e.preventDefault();
       return;
     }
@@ -102,19 +103,17 @@ var EventHandlers = {
     }, this.props, this.state));
     touchObject.curX = (e.touches) ? e.touches[0].pageX : e.clientX;
     touchObject.curY = (e.touches) ? e.touches[0].pageY : e.clientY;
-    touchObject.swipeLength = Math.round(Math.sqrt(Math.pow(touchObject.curX - touchObject.startX, 2)));
+    var horizontalSwipeLength = Math.round(Math.sqrt(Math.pow(touchObject.curX - touchObject.startX, 2)));
+    var verticalSwipeLength = Math.round(Math.sqrt(Math.pow(touchObject.curY - touchObject.startY, 2)));
+    touchObject.swipeLength = horizontalSwipeLength;
 
-    if (this.props.vertTouchScrollStability) {
-      var diffX = Math.abs(touchObject.startX - touchObject.curX);
-      var diffY = Math.abs(touchObject.startY - touchObject.curY);
-      if (diffY >= diffX) {
-        this.setState({ verticalStability: true });
-        return;
-      }
+    if (!this.props.verticalSwiping && !this.state.beenSwipeMoved && verticalSwipeLength > horizontalSwipeLength) {
+      this.setState({ dragging: false })
+      return;
     }
 
     if (this.props.verticalSwiping) {
-      touchObject.swipeLength = Math.round(Math.sqrt(Math.pow(touchObject.curY - touchObject.startY, 2)));
+      touchObject.swipeLength = verticalSwipeLength;
     }
 
     positionOffset = (this.props.rtl === false ? 1 : -1) * (touchObject.curX > touchObject.startX ? 1 : -1);
@@ -155,6 +154,7 @@ var EventHandlers = {
     }
 
     this.setState({
+      beenSwipeMoved: true,
       touchObject: touchObject,
       swipeLeft: swipeLeft,
       trackStyle: getTrackCSS(assign({left: swipeLeft}, this.props, this.state))
@@ -244,14 +244,15 @@ var EventHandlers = {
   },
   swipeEnd: function (e) {
     if (!this.state.dragging) {
-      e.preventDefault();
+      if (this.props.swipe) {
+        e.preventDefault();
+      }
       return;
     }
     var touchObject = this.state.touchObject;
     var minSwipe = this.state.listWidth/this.props.touchThreshold;
     var swipeDirection = this.swipeDirection(touchObject);
-    var verticalStability = this.state.verticalStability;
-    
+
     if (this.props.verticalSwiping) {
       minSwipe = this.state.listHeight/this.props.touchThreshold;
     }
@@ -262,17 +263,12 @@ var EventHandlers = {
       edgeDragged: false,
       swiped: false,
       swipeLeft: null,
-      touchObject: {},
-      verticalStability: false
+      touchObject: {}
     });
-    
-    if (!touchObject.swipeLength || verticalStability) {
-      if (verticalStability) {
-        e.preventDefault();
-      }
+    // Fix for #13
+    if (!touchObject.swipeLength) {
       return;
     }
-
     if (touchObject.swipeLength > minSwipe) {
       e.preventDefault();
 
