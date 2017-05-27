@@ -41,7 +41,7 @@ var EventHandlers = {
 
     this.slideHandler(targetSlide);
   },
-
+ 
   // Accessiblity handler for previous and next
   keyHandler: function (e) {
     //Dont slide if the cursor is inside the form fields and arrow keys are pressed
@@ -82,7 +82,7 @@ var EventHandlers = {
     });
   },
   swipeMove: function (e) {
-    if (!this.state.dragging) {
+    if (!this.state.dragging || this.state.verticalStability) {
       e.preventDefault();
       return;
     }
@@ -103,6 +103,15 @@ var EventHandlers = {
     touchObject.curX = (e.touches) ? e.touches[0].pageX : e.clientX;
     touchObject.curY = (e.touches) ? e.touches[0].pageY : e.clientY;
     touchObject.swipeLength = Math.round(Math.sqrt(Math.pow(touchObject.curX - touchObject.startX, 2)));
+
+    if (this.props.vertTouchScrollStability) {
+      var diffX = Math.abs(touchObject.startX - touchObject.curX);
+      var diffY = Math.abs(touchObject.startY - touchObject.curY);
+      if (diffY >= diffX) {
+        this.setState({ verticalStability: true });
+        return;
+      }
+    }
 
     if (this.props.verticalSwiping) {
       touchObject.swipeLength = Math.round(Math.sqrt(Math.pow(touchObject.curY - touchObject.startY, 2)));
@@ -235,15 +244,14 @@ var EventHandlers = {
   },
   swipeEnd: function (e) {
     if (!this.state.dragging) {
-      if (this.props.swipe) {
-        e.preventDefault();
-      }
+      e.preventDefault();
       return;
     }
     var touchObject = this.state.touchObject;
     var minSwipe = this.state.listWidth/this.props.touchThreshold;
     var swipeDirection = this.swipeDirection(touchObject);
-
+    var verticalStability = this.state.verticalStability;
+    
     if (this.props.verticalSwiping) {
       minSwipe = this.state.listHeight/this.props.touchThreshold;
     }
@@ -254,12 +262,17 @@ var EventHandlers = {
       edgeDragged: false,
       swiped: false,
       swipeLeft: null,
-      touchObject: {}
+      touchObject: {},
+      verticalStability: false
     });
-    // Fix for #13
-    if (!touchObject.swipeLength) {
+    
+    if (!touchObject.swipeLength || verticalStability) {
+      if (verticalStability) {
+        e.preventDefault();
+      }
       return;
     }
+
     if (touchObject.swipeLength > minSwipe) {
       e.preventDefault();
 
@@ -300,11 +313,6 @@ var EventHandlers = {
     }
   },
   onInnerSliderEnter: function (e) {
-    if (this.props.autoplay && this.props.pauseOnHover) {
-      this.pause();
-    }
-  },
-  onInnerSliderOver: function (e) {
     if (this.props.autoplay && this.props.pauseOnHover) {
       this.pause();
     }
