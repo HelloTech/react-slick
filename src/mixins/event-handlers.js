@@ -113,7 +113,6 @@ var EventHandlers = {
     }
 
     if (this.props.verticalSwiping) {
-      console.log('hi glenn');
       touchObject.swipeLength = verticalSwipeLength;
     }
 
